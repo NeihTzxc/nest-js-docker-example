@@ -1,0 +1,78 @@
+version: '3.6'
+services:
+  social-api:
+    container_name: social-api
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: social-service
+    restart: unless-stopped
+    ports:
+      - ${SERVER_APP_PUBLIC_PORT}:3000
+    volumes:
+      - "./src:/app/src"
+    env_file:
+      - .env
+    networks:
+      - social-network
+    command: start:dev
+
+  postgresql:
+    image: postgres:12
+    restart: unless-stopped
+    environment:
+        POSTGRES_DB: '${POSTGRES_DB}'
+        POSTGRES_USER: '${POSTGRES_USER}'
+        POSTGRES_PASSWORD: '${POSTGRES_PASSWORD}'
+    volumes:
+        - ./db_data:/var/lib/postgresql/data
+        - ./migrations/init:/docker-entrypoint-initdb.d
+    ports:
+        - 55432:5432
+    env_file:
+        - .env
+    networks:
+        - social-network
+
+  redis:
+    image: redis:6.2
+    restart: always
+    environment:
+        REDIS_PASSWORD: '${REDIS_PASSWORD}'
+    ports:
+        - ${REDIS_PUBLIC_PORT}:6379
+    env_file:
+      - .env
+    networks:
+        - social-network
+  redis-queue:
+    image: redis:6.2
+    restart: always
+    environment:
+        REDIS_PASSWORD: '${REDIS_QUEUE_PASSWORD}'
+    ports:
+        - ${REDIS_QUEUE_PUBLIC_PORT}:6379
+    env_file:
+      - .env
+    networks:
+        - social-network
+
+  rabbitmq:
+    image: rabbitmq:management
+    container_name: rabbitmq-social-service
+    restart: unless-stopped
+    environment:
+        RABBITMQ_ERLANG_COOKIE: ${RABBITMQ_ERLANG_COOKIE}
+        RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+        RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    ports:
+      - 5672:5672
+      - 15672:15672
+    volumes:
+      - ./rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - social-network
+
+networks:
+    social-network:
+        driver: bridge
